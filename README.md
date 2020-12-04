@@ -1,6 +1,6 @@
 This is the start of a series of blog posts about creating PowerShell modules with the help of Azure Devops services.
 
-https://www.theazurecloud.ninja/
+https://labornet.nl/
 
 ```
 
@@ -20,7 +20,7 @@ Brief description for the first public script: This is a test function for impor
 Module authors name: Azure Cloud Ninja
 What is the company Name the module is writen for.: 
 What is the company Name the module is writen for.: The Azure Cloud Ninja
-Project Url location: https://www.theazurecloud.ninja/
+Project Url location: https://labornet.nl/
 Destination path: C:\Repos\Private
       Creating folder structure        
    Create .vscode\
