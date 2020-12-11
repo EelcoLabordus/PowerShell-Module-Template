@@ -1,6 +1,6 @@
 This is the start of a series of blog posts about creating PowerShell modules with the help of Azure Devops services.
 
-https://www.theazurecloud.ninja/
+https://labornet.nl/
 
 ```
 
