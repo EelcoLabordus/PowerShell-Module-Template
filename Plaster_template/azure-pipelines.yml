@@ -13,8 +13,6 @@ pool:
 variables:
   - group: General-build-variable
 
-# abc
-# some changes
 stages:
   - stage: Test
     jobs:
@@ -82,6 +80,22 @@ stages:
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/CodeCoverageResults*.xml"
               pathToSources: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
               failIfCoverageEmpty: true
+          
+          - task: PowerShell@2
+            displayName: Building Markdown Help Files
+            inputs:
+              targetType: "inline"
+              pwsh: true
+              failOnStderr: true
+              script: Invoke-Build -Task BuildingHelpFiles -ModuleName $(module.Name)
+              workingDirectory: $(System.DefaultWorkingDirectory)
+          
+          - task: PublishBuildArtifacts@1
+            displayName: Publish Markdown files
+            inputs:
+              PathtoPublish: 'D:\a\1\s\build\Help'
+              ArtifactName: 'help'
+              publishLocation: 'Container'
 
           - task: PowerShell@2
             displayName: "Checking if ARM files are present for testing."
@@ -89,18 +103,23 @@ stages:
               targetType: "inline"
               script: |
                 #Setting up variable for testing of AMR templates
-                $Count = 0
                 if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/" -Filter *.json -Recurse){
                   Write-Output -InputObject "##vso[task.setvariable variable=ARMTemplates;]ARMPresent"
                 }
+
+                #Importing files to exclude
+                $InputFiles = Get-Content -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv"
+                Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$InputFiles"
 
           - task: AzSKARMTemplateChecker@4
             displayName: "Checking ARM templates in the module."
             condition: eq(variables['ARMTemplates'], 'ARMPresent')
             inputs:
-              ARMTemplateFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
-              ARMTemplateParameterFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
-
+              ARMTemplateFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
+              ARMTemplateParameterFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
+              ExcludeFiles: $(AzSSkipFiles)
+              SkipControlsFromFile: "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipControlsFromFile.csv"
+          
   - stage: Build
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) # Create builds only from the master branch
     jobs:
@@ -125,22 +144,6 @@ stages:
               failOnStderr: false
               script: Invoke-Build -Task Build -Configuration Release -Sourcelocation $(module.SourceLocation) -ModuleName $(module.Name) -ADOPat $(System.AccessToken) -acceptableCodeCoveragePercent $(acceptableCodeCoveragePercent)
               workingDirectory: $(System.DefaultWorkingDirectory)
-
-          - task: PowerShell@2
-            displayName: Building Markdown Help Files
-            inputs:
-              targetType: "inline"
-              pwsh: true
-              failOnStderr: true
-              script: Invoke-Build -Task BuildingHelpFiles -ModuleName $(module.Name)
-              workingDirectory: $(System.DefaultWorkingDirectory)
-          
-          - task: PublishBuildArtifacts@1
-            displayName: Publish Markdown files
-            inputs:
-              PathtoPublish: 'D:\a\1\s\build\Help'
-              ArtifactName: 'help'
-              publishLocation: 'Container'
 
           - task: NuGetCommand@2
             displayName: Create a NuGet package
