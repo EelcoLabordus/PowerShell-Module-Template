@@ -103,13 +103,21 @@ stages:
               targetType: "inline"
               script: |
                 #Setting up variable for testing of AMR templates
-                if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/" -Filter *.json -Recurse){
+                if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/" -Filter *.json -Recurse -ErrorAction SilentlyContinue){
+                  Write-Output -InputObject "ARM Files found and will be tested. Enable trigger for next phase."
                   Write-Output -InputObject "##vso[task.setvariable variable=ARMTemplates;]ARMPresent"
-                }
 
-                #Importing files to exclude
-                $InputFiles = Get-Content -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv"
-                Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$InputFiles"
+                  #Importing files to exclude
+                  Write-Output -InputObject "Checking exclusion file."
+                  Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$Null"
+                  if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv" -ErrorAction SilentlyContinue){
+                    $InputFiles = Get-Content -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv"
+                    Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$InputFiles"
+                  }
+                }
+                Else{
+                  Write-Output -InputObject "NO ARM Files found and test phase will be skipped."
+                }
 
           - task: AzSKARMTemplateChecker@4
             displayName: "Checking ARM templates in the module."
@@ -164,18 +172,19 @@ stages:
     jobs:
       - job: PublishJob
         steps:
-          - task: DownloadPipelineArtifact@2
-            displayName: Download pipeline artifact
-            inputs:
-              buildType: "current"
-              artifactName: "$(module.Name)"
-              itemPattern: "**/*.nupkg"
-              targetPath: "$(Pipeline.Workspace)"
+        - task: DownloadBuildArtifacts@0
+          displayName: Download Build Artifacts
+          inputs:
+            buildType: 'current'
+            downloadType: 'single'
+            artifactName: '$(module.Name)'
+            itemPattern: '**/*.nupkg'
+            downloadPath: '$(Pipeline.Workspace)'
 
-          - task: NuGetCommand@2
-            displayName: Publish module to NuGet feed
-            inputs:
-              command: "push"
-              packagesToPush: "$(Pipeline.Workspace)/**/*.nupkg"
-              nuGetFeedType: "internal"
-              publishVstsFeed: "$(module.FeedName)"
+        - task: NuGetCommand@2
+          displayName: Publish module to NuGet feed
+          inputs:
+            command: "push"
+            packagesToPush: "$(Pipeline.Workspace)/**/*.nupkg"
+            nuGetFeedType: "internal"
+            publishVstsFeed: "$(module.FeedName)"
