@@ -80,23 +80,6 @@ stages:
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/CodeCoverageResults*.xml"
               pathToSources: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
               failIfCoverageEmpty: true
-          
-          - task: PowerShell@2
-            displayName: Building Markdown Help Files
-            inputs:
-              targetType: "inline"
-              pwsh: true
-              failOnStderr: true
-              script: Invoke-Build -Task BuildingHelpFiles -ModuleName $(module.Name)
-              workingDirectory: $(System.DefaultWorkingDirectory)
-          
-          - task: PublishBuildArtifacts@1
-            displayName: Publish Markdown files
-            inputs:
-              PathtoPublish: 'D:\a\1\s\build\Help'
-              ArtifactName: 'help'
-              publishLocation: 'Container'
-
           - task: PowerShell@2
             displayName: "Checking if ARM files are present for testing."
             inputs:
@@ -166,6 +149,22 @@ stages:
               PathtoPublish: "$(Build.ArtifactStagingDirectory)"
               ArtifactName: "$(module.Name)"
               publishLocation: Container
+          
+          - task: PowerShell@2
+            displayName: Building Markdown Help Files
+            inputs:
+              targetType: "inline"
+              pwsh: true
+              failOnStderr: true
+              script: Invoke-Build -Task BuildingHelpFiles -ModuleName $(module.Name)
+              workingDirectory: $(System.DefaultWorkingDirectory)
+          
+          - task: PublishBuildArtifacts@1
+            displayName: Publish Markdown files
+            inputs:
+              PathtoPublish: 'D:\a\1\s\build\Help'
+              ArtifactName: 'help'
+              publishLocation: 'Container'
 
   - stage: Publish
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) # Publish the module only from the master branch
