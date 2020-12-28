@@ -2,10 +2,42 @@
 
 <#
 .SYNOPSIS
-    Build script (https://github.com/nightroman/Invoke-Build)
+  This script contains the tasks for building the PowerShell module
 
 .DESCRIPTION
-    This script contains the tasks for building the PowerShell module
+  This script contains the tasks for building the PowerShell module
+
+.PARAMETER Configuration
+  What is the release pipeline for (Debug or Release)
+
+.PARAMETER ADOPat
+  What is the ADO personal accesses token.
+
+.PARAMETER acceptableCodeCoveragePercent
+  What is the percentage of code it needs to cover.
+
+.PARAMETER ModuleName
+  What is the Module name of this release
+
+.PARAMETER MajorVersionNumber
+  This number will be used to specified the major release number.
+
+.INPUTS
+  None
+
+.OUTPUTS
+  None
+
+.LINK
+None
+
+.NOTES
+  Version:         1.0.0
+  Author:          Eelco Labordus
+  Source:          https://github.com/nightroman/Invoke-Build
+  Change Log
+
+.EXAMPLE
 #>
 
 Param (
@@ -28,7 +60,11 @@ Param (
     [Parameter(ValueFromPipelineByPropertyName = $true)]
     [ValidateNotNullOrEmpty()]
     [String]
-    $ModuleName
+    $ModuleName,
+    [Parameter(ValueFromPipelineByPropertyName = $true)]
+    [ValidateNotNullOrEmpty()]
+    [Int]
+    $MajorVersionNumber
 )
 
 Set-StrictMode -Version Latest
@@ -144,6 +180,7 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
     # Define package repository name
     $repositoryName = $ModuleName + '-repository'
     $feedUsername = $ADOPat
+
     # Create credentials
     $password = ConvertTo-SecureString -String $ADOPat -AsPlainText -Force
     $credential = New-Object System.Management.Automation.PSCredential ($feedUsername, $password)
@@ -191,6 +228,7 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
 
         # Get the count of exported module functions
         $existingFunctionsCount = (Get-Command -Module $ModuleName | Where-Object -Property Version -EQ $existingPackage.Version | Measure-Object).Count
+
         # Check if new public functions were added in the current build
         [int]$sourceFunctionsCount = (Get-ChildItem -Path "$moduleSourcePath\Public\*.ps1" -Exclude "*.Tests.*" | Measure-Object).Count
         [int]$newFunctionsCount = [System.Math]::Abs($sourceFunctionsCount - $existingFunctionsCount)
@@ -203,6 +241,20 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
         # If not, just increase the build number
         else {
             [int]$Build = $Build + 1
+        }
+
+        # If Major release number is specified then it will be used.
+        if ($MajorVersionNumber) {
+            If ($MajorVersionNumber -ge [int]$Major) {
+                If ($MajorVersionNumber -gt [int]$Major) {
+                    [int]$Major = $MajorVersionNumber
+                    [int]$Minor = 0
+                    [int]$Build = 0
+                }
+            }
+            else {
+                Throw "Version number specified [$MajorVersionNumber] is smaller then version released [$Major]."
+            } 
         }
 
         # Update the module version object
@@ -363,7 +415,7 @@ task CodeCoverage {
 task BuildingHelpFiles {
 
     $path = $moduleSourcePath
-    $Modules = get-childitem -path $path -recurse -Filter *.psd1 -Verbose
+    $Modules = get-childitem -path $path -Filter *.psd1 -Verbose
 
     Write-Output -InputObject "Modules: $Modules"
 
@@ -377,10 +429,8 @@ task BuildingHelpFiles {
         Import-Module -Name $Module.FullName -Verbose
 
         #Retrieve version number of module
-        $TempModule = Get-Module -ListAvailable $Module.FullName
-
-        $ModuleVersion = $TempModule.Version.ToString()
-        write-output -InputObject "$($Module.Name) has version : $ModuleVersion"
+        $moduleversion = Get-Module -ListAvailable $Module.FullName
+        write-output -InputObject "$($Module.Name) has version : $($moduleversion.Version.ToString())"
 
         #Construction file paths
 
@@ -398,7 +448,7 @@ task BuildingHelpFiles {
             New-Item -ItemType Directory -Force -Path $RootModulePath
         }
 
-        $Modulepath = "$RootModulePath\$ModuleVersion"
+        $Modulepath = "$RootModulePath\$($moduleversion.Version.ToString())"
         If (test-path $Modulepath) {
             Remove-Item –path $Modulepath –recurse
         }
@@ -419,15 +469,39 @@ task BuildingHelpFiles {
         Copy-Item -Path "$Modulepath\$($Module.BaseName).md" -Destination "$Modulepath\index.md" -Force
 
         #Create New version specific Markdown file
+        $ModuleInfo = Get-Module $Module.BaseName
 
         "---" |  Out-File -FilePath "$Modulepath\index.md" -Force
-        "name : $ModuleVersion" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "name : $($ModuleInfo.Version.ToString())" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
         "order : 1000 # higher has more priority" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
         "---" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
         "" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
-        "#PowerShell Module $ModuleVersion home page" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "# PowerShell Module $($ModuleInfo.Name) home page" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "PowerShell Module $($ModuleInfo.Name)" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Attribute Name  |Value  |" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|---------|---------|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Name|$($ModuleInfo.Name)|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Version|$($ModuleInfo.Version.ToString())|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Description|$($ModuleInfo.Description)|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Copyright|$($ModuleInfo.Copyright)|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        
+        #Function help within module
+        "## Functions" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "the following functions are exported within this module:" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|Function Name  |Synopsis  |" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        "|---------|---------|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        
+        $Functions = $ModuleInfo.ExportedFunctions
+        Foreach ($Function in $Functions) {
+            $FunctionsHelp = Get-Help -Name $Function.Keys -Full
+            "|$($FunctionsHelp.Name)|$($FunctionsHelp.Synopsis)|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
+        }
 
-        #Creating header for indexing services
+        #Createing header for indexing services
         $Files = Get-ChildItem -Path $Modulepath -File -Recurse
         $Counter = 1
 
