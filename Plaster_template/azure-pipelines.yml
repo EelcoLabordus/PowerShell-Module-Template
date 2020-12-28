@@ -80,6 +80,7 @@ stages:
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/CodeCoverageResults*.xml"
               pathToSources: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
               failIfCoverageEmpty: true
+          
           - task: PowerShell@2
             displayName: "Checking if ARM files are present for testing."
             inputs:
@@ -133,7 +134,7 @@ stages:
               targetType: "inline"
               pwsh: true
               failOnStderr: false
-              script: Invoke-Build -Task Build -Configuration Release -Sourcelocation $(module.SourceLocation) -ModuleName $(module.Name) -ADOPat $(System.AccessToken) -acceptableCodeCoveragePercent $(acceptableCodeCoveragePercent)
+              script: Invoke-Build -Task Build -Configuration Release -Sourcelocation $(module.SourceLocation) -ModuleName $(module.Name) -ADOPat $(System.AccessToken) -acceptableCodeCoveragePercent $(module.acceptableCodeCoveragePercent) -MajorVersionNumber $(module.MajorVersionNumber)
               workingDirectory: $(System.DefaultWorkingDirectory)
 
           - task: NuGetCommand@2
