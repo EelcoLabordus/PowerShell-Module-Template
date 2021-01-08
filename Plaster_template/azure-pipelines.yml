@@ -104,13 +104,27 @@ stages:
                 }
 
           - task: AzSKARMTemplateChecker@4
-            displayName: "Checking ARM templates in the module."
+            displayName: "Checking ARM templates in the module using AzSKARM."
             condition: eq(variables['ARMTemplates'], 'ARMPresent')
             inputs:
               ARMTemplateFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
               ARMTemplateParameterFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
               ExcludeFiles: $(AzSSkipFiles)
               SkipControlsFromFile: "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipControlsFromFile.csv"
+          
+          - task: RunARMTTKTests@1
+            displayName: 'Checking ARM templates in the module using ARM-TTK.'
+            condition: eq(variables['ARMTemplates'], 'ARMPresent')
+            inputs:
+              templatelocation: '$(System.DefaultWorkingDirectory)/$(module.Name)/*'
+              resultLocation: '$(System.DefaultWorkingDirectory)\results'
+          
+          - task: PublishTestResults@2
+            displayName: "Publish ARM-TTK results."
+            condition: always()
+            inputs:
+              testResultsFormat: 'NUnit'
+              testResultsFiles: '$(System.DefaultWorkingDirectory)\results\*-armttk.xml'
           
   - stage: Build
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) # Create builds only from the master branch
