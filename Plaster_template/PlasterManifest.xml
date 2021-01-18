@@ -16,7 +16,7 @@
     <parameter name="PowerShellFunctionName" type="text" prompt="Name for the first public script"/>
     <parameter name="PowerShellFunctionDesc" type="text" prompt="Brief description for the first public script"/>
     <parameter name="FullName" type="text" prompt="Module author's' name"/>
-    <parameter name="CompanyName" type="text" prompt="What is the company Name the module is writen for."/>
+    <parameter name="CompanyName" type="text" prompt="What is the company Name the module is written for."/>
     <parameter name="projectUrl" type="text" prompt="Project Url location"/>
   </parameters>
   <content>
@@ -26,14 +26,18 @@
     <file source='' destination='${PLASTER_PARAM_ModuleName}\private'/>
     <file source='' destination='${PLASTER_PARAM_ModuleName}\classes'/>
     <file source='' destination='${PLASTER_PARAM_ModuleName}\data'/>
+    <file source='' destination='DevOps-Pipelines'/>
     <message>      Deploying files    </message>
     <file source='.gitignore' destination=''/>
-    <file source='azure-pipelines.yml' destination=''/>
+    <file source='Invoke-TestARMAZSK.ps1' destination=''/>
+    <file source='Invoke-TestARMTTK.ps1' destination=''/>
     <file source='Module.build.ps1' destination=''/>
     <file source='Module.depend.psd1' destination=''/>
     <file source='.vscode\launch.json' destination=''/>
     <file source='.vscode\settings.json' destination=''/>
     <file source='.vscode\PSScriptAnalyzerSettings.psd1' destination=''/>
+    <file source='DevOps-Pipelines\ARM-pipelines.yml' destination='DevOps-Pipelines\ARM-pipelines.yml'/>
+    <file source='DevOps-Pipelines\PowerShell-pipelines.yml' destination='DevOps-Pipelines\PowerShell-pipelines.yml'/>
     <file source='module\module.psm1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.psm1'/>
     <file source='module\module.psd1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.psd1'/>
     <file source='module\module.PSSATests.ps1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.PSSATests.ps1'/>

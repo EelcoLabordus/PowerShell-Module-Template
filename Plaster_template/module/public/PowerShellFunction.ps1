@@ -1,10 +1,13 @@
-function <%= $PLASTER_PARAM_PowerShellFunctionName %> {
-    <#
+function <%= $PLASTER_PARAM_PowerShellFunctionName %>
+{
+<#
 .SYNOPSIS
   <%= $PLASTER_PARAM_PowerShellFunctionDesc %>
 
 .DESCRIPTION
   <%= $PLASTER_PARAM_PowerShellFunctionDesc %>
+
+.PARAMETER 
 
 .INPUTS
   None
@@ -12,9 +15,11 @@ function <%= $PLASTER_PARAM_PowerShellFunctionName %> {
 .OUTPUTS
   None
 
+.LINK
+  None
 
 .NOTES
-  Version:         0.0.0.1
+  Version:         0.0.1
   Author:          <%= $PLASTER_PARAM_FullName %>
   Company:         <%= $PLASTER_PARAM_CompanyName %>
   Change Log
@@ -24,28 +29,44 @@ function <%= $PLASTER_PARAM_PowerShellFunctionName %> {
 
 #>
 
-#region --------------------------[ Initialisations ]-----------------------
+  #region --------------------------[ Initialisations ]-----------------------
 
-#requires -Version 5.0
-[cmdletbinding()]
-param()
+  #requires -Version 5.1
 
-#endregion -----------------------[ Initialisations ]-----------------------
+  [CmdletBinding()]
+  [OutputType()]
+  param
+  ()
 
-#region --------------------------[ Declarations ]--------------------------
+  BEGIN
+  {
 
-# Setting Default variable.
+  #endregion -----------------------[ Initialisations ]-----------------------
 
-#endregion -----------------------[ Declarations ]--------------------------
+    #region --------------------------[ Declarations ]--------------------------
+    # Setting Default variable.
+    #endregion -----------------------[ Declarations ]--------------------------
 
-#region --------------------------[ Functions ]-----------------------------
+    #region --------------------------[ Functions ]-----------------------------
+    #endregion -----------------------[ Functions ]-----------------------------
 
+    #region ---------------------[ Pre Pipeline Execution ]---------------------
 
-#endregion -----------------------[ Functions ]-----------------------------
+    #endregion ------------------[ Pre Pipeline Execution ]---------------------
+  }
 
-#region --------------------------[ Execution ]--------------------------
+  PROCESS
+  {
+    #region -----------------------[ Pipeline Execution ]-----------------------
 
-#endregion -----------------------[ Execution ]--------------------------
+    #endregion --------------------[ Pipeline Execution ]-----------------------
+  }
 
+  END
+  {
+    #region ---------------------[ Post Pipeline Execution ]--------------------
 
+    Write-Verbose "Exit function $($MyInvocation.MyCommand.Name)"
+    #endregion ------------------[ Post Pipeline Execution ]--------------------
+  }
 }

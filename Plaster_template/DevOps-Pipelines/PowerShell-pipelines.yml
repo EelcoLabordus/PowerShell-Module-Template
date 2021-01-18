@@ -2,7 +2,7 @@ trigger:
   branches:
     include:
       - master
-      - feature/*
+      - main
   paths:
     exclude:
       - README.md
@@ -38,14 +38,6 @@ stages:
               script: Invoke-Build -Task Analyze -ModuleName $(module.Name)
               workingDirectory: $(System.DefaultWorkingDirectory)
 
-          - task: PublishTestResults@2
-            displayName: Publish code analysis results
-            condition: succeededOrFailed()
-            inputs:
-              testResultsFormat: "NUnit"
-              testResultsFiles: "$(System.DefaultWorkingDirectory)/**/AnalysisResults*.xml"
-              failTaskOnFailedTests: true
-
           - task: PowerShell@2
             displayName: Test code with Pester tests
             inputs:
@@ -55,12 +47,31 @@ stages:
               script: Invoke-Build -Task Test -ModuleName $(module.Name)
               workingDirectory: $(System.DefaultWorkingDirectory)
 
+          - task: PowerShell@2
+            displayName: Start checking ARM files for ARM-TTK
+            inputs:
+              targetType: "inline"
+              pwsh: true
+              failOnStderr: false
+              script: Invoke-Build -Task TestARMTTK -ModuleName $(module.Name)
+              workingDirectory: $(System.DefaultWorkingDirectory)
+    
+          - task: PowerShell@2
+            displayName: Start checking ARM files for AzSKARMTemplateSecurity
+            inputs:
+              targetType: "inline"
+              pwsh: true
+              failOnStderr: false
+              script: Invoke-Build -Task TestARMAZSK -ModuleName $(module.Name)
+              workingDirectory: $(System.DefaultWorkingDirectory)
+  
           - task: PublishTestResults@2
             displayName: Publish test results
             condition: succeededOrFailed()
             inputs:
               testResultsFormat: "NUnit"
-              testResultsFiles: "$(System.DefaultWorkingDirectory)/**/TestResults*.xml"
+              mergeTestResults: true
+              testResultsFiles: '$(System.DefaultWorkingDirectory)\Results\TEST-*.xml'
               failTaskOnFailedTests: true
 
           - task: PowerShell@2
@@ -80,54 +91,10 @@ stages:
               summaryFileLocation: "$(System.DefaultWorkingDirectory)/**/CodeCoverageResults*.xml"
               pathToSources: "$(System.DefaultWorkingDirectory)/$(module.Name)/"
               failIfCoverageEmpty: true
-          
-          - task: PowerShell@2
-            displayName: "Checking if ARM files are present for testing."
-            inputs:
-              targetType: "inline"
-              script: |
-                #Setting up variable for testing of AMR templates
-                if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/" -Filter *.json -Recurse -ErrorAction SilentlyContinue){
-                  Write-Output -InputObject "ARM Files found and will be tested. Enable trigger for next phase."
-                  Write-Output -InputObject "##vso[task.setvariable variable=ARMTemplates;]ARMPresent"
-
-                  #Importing files to exclude
-                  Write-Output -InputObject "Checking exclusion file."
-                  Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$Null"
-                  if (Get-ChildItem -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv" -ErrorAction SilentlyContinue){
-                    $InputFiles = Get-Content -Path "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipFiles.csv"
-                    Write-Output -InputObject "##vso[task.setvariable variable=AzSSkipFiles;]$InputFiles"
-                  }
-                }
-                Else{
-                  Write-Output -InputObject "NO ARM Files found and test phase will be skipped."
-                }
-
-          - task: AzSKARMTemplateChecker@4
-            displayName: "Checking ARM templates in the module using AzSKARM."
-            condition: eq(variables['ARMTemplates'], 'ARMPresent')
-            inputs:
-              ARMTemplateFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
-              ARMTemplateParameterFilePath: "$(System.DefaultWorkingDirectory)/$(module.Name)"
-              ExcludeFiles: $(AzSSkipFiles)
-              SkipControlsFromFile: "$(System.DefaultWorkingDirectory)/$(module.Name)/AzSSkipControlsFromFile.csv"
-          
-          - task: RunARMTTKTests@1
-            displayName: 'Checking ARM templates in the module using ARM-TTK.'
-            condition: eq(variables['ARMTemplates'], 'ARMPresent')
-            inputs:
-              templatelocation: '$(System.DefaultWorkingDirectory)/$(module.Name)/*'
-              resultLocation: '$(System.DefaultWorkingDirectory)\results'
-          
-          - task: PublishTestResults@2
-            displayName: "Publish ARM-TTK results."
-            condition: always()
-            inputs:
-              testResultsFormat: 'NUnit'
-              testResultsFiles: '$(System.DefaultWorkingDirectory)\results\*-armttk.xml'
+ 
           
   - stage: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) # Create builds only from the master branch
+    condition: succeeded()
     jobs:
       - job: BuildJob
         steps:
@@ -182,7 +149,7 @@ stages:
               publishLocation: 'Container'
 
   - stage: Publish
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master')) # Publish the module only from the master branch
+    condition: succeeded()
     jobs:
       - job: PublishJob
         steps:
