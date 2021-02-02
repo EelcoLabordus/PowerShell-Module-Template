@@ -38,6 +38,8 @@
     <file source='.vscode\PSScriptAnalyzerSettings.psd1' destination=''/>
     <file source='DevOps-Pipelines\ARM-pipelines.yml' destination='DevOps-Pipelines\ARM-pipelines.yml'/>
     <file source='DevOps-Pipelines\PowerShell-pipelines.yml' destination='DevOps-Pipelines\PowerShell-pipelines.yml'/>
+    <file source='DevOps-Pipelines\PowerShell-Build-Validation.yml' destination='DevOps-Pipelines\PowerShell-Build-Validation.yml'/>
+    <file source='DevOps-Pipelines\ARM-Build-Validation.yml' destination='DevOps-Pipelines\ARM-Build-Validation.yml'/>
     <file source='module\module.psm1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.psm1'/>
     <file source='module\module.psd1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.psd1'/>
     <file source='module\module.PSSATests.ps1' destination='${PLASTER_PARAM_ModuleName}\${PLASTER_PARAM_ModuleName}.PSSATests.ps1'/>
