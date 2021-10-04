@@ -73,7 +73,8 @@ task . Clean, Build
 Enter-Build {
 
     # Installing PSDepend for dependency management
-    if (-not (Get-Module -Name PSDepend -ListAvailable)) {
+    if (-not (Get-Module -Name PSDepend -ListAvailable))
+    {
         Install-Module PSDepend -Force
     }
     Import-Module PSDepend
@@ -90,11 +91,13 @@ Enter-Build {
     $script:buildOutputPath = Join-Path -Path $BuildRoot -ChildPath 'build'
     $script:Imports = ( 'private', 'public', 'classes' )
 
-    if ($env:TF_BUILD) {
+    if ($env:TF_BUILD)
+    {
         $TestOutputDir = "$($env:System_DefaultWorkingDirectory)\Results"
     }
 
-    If (test-path -Path $moduleManifestPath) {
+    If (test-path -Path $moduleManifestPath)
+    {
         Write-Output -InputObject "  PowerShell Module found, start prepping for module build."
 
         # Setting base module version and using it if building locally
@@ -123,9 +126,11 @@ task Analyze {
     }
 
     # Additional parameters on Azure Pipelines agents to generate test results
-    if ($env:TF_BUILD) {
+    if ($env:TF_BUILD)
+    {
         Write-Output -InputObject "  Azure Pipelines agents detected, adding parameters."
-        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue)) {
+        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue))
+        {
             New-Item -Path $TestOutputDir -ItemType Directory
         }
         $Timestamp = Get-date -UFormat "%Y%m%d-%H%M%S"
@@ -135,13 +140,15 @@ task Analyze {
         $Params.Add("OutputFormat", "NUnitXml")
     }
 
-    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue)) {
+    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue))
+    {
         Write-Warning -Message "  Result file not found!"
     }
 
     # Invoke all tests
     $TestResults = Invoke-Pester @Params
-    if ($TestResults.FailedCount -gt 0) {
+    if ($TestResults.FailedCount -gt 0)
+    {
         $TestResults | Format-List
         throw "One or more PSScriptAnalyzer rules have been violated. Build cannot continue!"
     }
@@ -165,9 +172,11 @@ task Test {
     }
 
     # Additional parameters on Azure Pipelines agents to generate test results
-    if ($env:TF_BUILD) {
+    if ($env:TF_BUILD)
+    {
         Write-Output -InputObject "  Azure Pipelines agents detected, adding parameters."
-        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue)) {
+        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue))
+        {
             New-Item -Path $TestOutputDir -ItemType Directory
         }
         $Timestamp = Get-date -UFormat "%Y%m%d-%H%M%S"
@@ -177,13 +186,15 @@ task Test {
         $Params.Add("OutputFormat", "NUnitXml")
     }
 
-    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue)) {
+    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue))
+    {
         Write-Warning -Message "  Result file not found!"
     }
 
     # Invoke all tests
     $TestResults = Invoke-Pester @Params
-    if ($TestResults.FailedCount -gt 0) {
+    if ($TestResults.FailedCount -gt 0)
+    {
         $TestResults | Format-List
         throw "One or more Pester tests have failed. Build cannot continue!"
     }
@@ -200,12 +211,31 @@ task TestARMTTK {
         Exclude = "*parameters*"
     }
 
-    $TestFiles = Get-ChildItem @Params
+    # Validate if it is a json file
+    $TestDirectorylist = @()
+    $TestJsonfiles = Get-ChildItem @Params
 
-    if ($TestFiles) {
+    foreach ($TestJsonfile in $TestJsonfiles)
+    {
+        $JsonTest = Get-Content -Raw -Path $TestJsonfile.FullName | ConvertFrom-Json
+
+        # File needs to contain following items to make sure that it is a ARM file.
+        If (('$schema' -in $JsonTest.PSobject.Properties.Name) -and ('contentVersion' -in $JsonTest.PSobject.Properties.Name) -and ('resources' -in $JsonTest.PSobject.Properties.Name))
+        {
+            Write-output "  ARM File detected : $($TestJsonfile.FullName) "
+            $TestDirectorylist += $TestJsonfile.Directory
+        }
+    }
+
+    # Only test directories once.
+    $TestDirectories = $TestDirectorylist | Get-Unique -AsString
+
+    if ($TestDirectories)
+    {
         Write-Output -InputObject "  ARM files detected. Start ARM check."
 
-        if (-not (Test-Path "$BuildRoot\Invoke-TestARMTTK.ps1")) {
+        if (-not (Test-Path "$BuildRoot\Invoke-TestARMTTK.ps1"))
+        {
             throw "File : Invoke-TestARMTTK.ps1 cannot be found!"
         }
 
@@ -213,7 +243,8 @@ task TestARMTTK {
         [int]$TestFailed = 0
 
         #Installing ARM-TTK
-        if ((Test-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY\arm-ttk\arm-ttk) -eq $false) {
+        if ((Test-Path $env:BUILD_ARTIFACTSTAGINGDIRECTORY\arm-ttk\arm-ttk) -eq $false)
+        {
             Write-Output -InputObject "  Clone https://github.com/Azure/arm-ttk.git."
             git clone https://github.com/Azure/arm-ttk.git --quiet $env:BUILD_ARTIFACTSTAGINGDIRECTORY\arm-ttk
         }
@@ -221,87 +252,107 @@ task TestARMTTK {
 
         #Install required Pester Module
         Write-Output -InputObject "  Install required Pester Module."
-        try {
+        try
+        {
             Remove-Module Pester -ErrorAction SilentlyContinue
             Import-Module Pester -RequiredVersion 4.10.1 -ErrorAction Stop
         }
-        catch {
+        catch
+        {
             $errorMessage = $error[0]
-            if ($errorMessage -like "*no valid module file was found*") {
+            if ($errorMessage -like "*no valid module file was found*")
+            {
                 Install-Module Pester -AllowClobber -RequiredVersion 4.10.1 -Force -SkipPublisherCheck -AcceptLicense
                 Import-Module Pester -RequiredVersion 4.10.1 -ErrorAction Stop
             }
-            else {
+            else
+            {
                 Write-Error -Message $errorMessage
             }
-        }  
+        }
 
-        foreach ($TestFile in $TestFiles) {
+        foreach ($TestDirectory in $TestDirectories)
+        {
             #Check if files need to be skipped!
+            Write-Output -InputObject ""
+            Write-Output -InputObject ""
+            Write-Warning -Message  "  Start testing : $($TestDirectory.FullName)"
+            Write-Output -InputObject ""
+            Write-Output -InputObject ""
+
             $ARMTTKSkipFiles = @()
-            if (Get-ChildItem -Path "$($TestFile.DirectoryName)\ARMTTKSkipFiles.csv" -ErrorAction SilentlyContinue) {
-                $ARMTTKSkipFiles = Get-Content -Path "$($TestFile.DirectoryName)\ARMTTKSkipFiles.csv"
+            if (Get-ChildItem -Path "$($TestDirectory.FullName)\ARMTTKSkipFiles.csv" -ErrorAction SilentlyContinue)
+            {
+                $ARMTTKSkipFiles = Get-Content -Path "$($TestDirectory.FullName)\ARMTTKSkipFiles.csv"
                 Write-Output -InputObject "  ARMTTKSkipFiles file found start excluding files."
             }
-            If (-not($ARMTTKSkipFiles.Contains($TestFile.PSChildName))) {
-                Write-Output -InputObject "  Start file: $($TestFile.PSChildName) for ARM checking!"
+            If (-not($ARMTTKSkipFiles.Contains($TestDirectory.FullName)))
+            {
+                Write-Output -InputObject "  Start file: $($TestDirectory.FullName) for ARM checking!"
 
                 $Parameters = @{
-                    TemplatePath = $TestFile
+                    TemplatePath = $TestDirectory.FullName
                 }
 
                 #AzSSkipControlsFromFile
-                if (Get-ChildItem -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).ARMTTKSkipControls.csv" -ErrorAction SilentlyContinue) {
-                    Write-Output -InputObject "  SkipControls found add value to parameter."
-                    $SkipControls = Get-Content -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).ARMTTKSkipControls.csv"
-                    $Parameters.add("SkipControls", $SkipControls)
+                if (Get-ChildItem -Path "$($TestDirectory.FullName)\ARMTTKSkipByFile.csv" -ErrorAction SilentlyContinue)
+                {
+                    Write-Output -InputObject "  SkipByFilePath found add value to parameter."
+                    $Parameters.add("SkipByFilePath", "$($TestDirectory.FullName)\ARMTTKSkipByFile.csv")
                 }
 
                 # Additional parameters on Azure Pipelines agents to generate test results
-                if ($env:TF_BUILD) {
+                if ($env:TF_BUILD)
+                {
                     Write-Output -InputObject "  Azure Pipelines agents detected, adding parameters."
-                    if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue)) {
+                    if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue))
+                    {
                         Write-Output -InputObject "  Creating path for testing report: $TestOutputDir"
                         New-Item -Path $TestOutputDir -ItemType Directory
                     }
 
                     $Timestamp = Get-date -UFormat "%Y%m%d-%H%M%S"
-                    $TestResultFile = "TEST-ARMTTK_$($TestFile.BaseName)_$TimeStamp.xml"
+                    $TestResultFile = "TEST-ARMTTK_$($TestDirectory.Name)_$TimeStamp.xml"
 
                     $TestResults = Invoke-Pester `
                         -Script @{ Path = "$BuildRoot\Invoke-TestARMTTK.ps1"; Parameters = $parameters } `
                         -OutputFormat NUnitXml `
                         -OutputFile "$TestOutputDir\$TestResultFile" `
                         -PassThru
- 
-                    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue)) {
+
+                    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue))
+                    {
                         Write-Warning -Message "  Result file not found!"
                     }
                 }
-                else {
+                else
+                {
                     # Invoke all tests
                     $TestResults = Invoke-Pester -PassThru -Script @{ 
                         Path       = "$BuildRoot\Invoke-TestARMTTK.ps1"; 
                         Parameters = $parameters
                     }
-
                 }
                 #Setting counter to execute all tests and fail if one test failed
-                if ($TestResults.FailedCount -gt 0) {
+                if ($TestResults.FailedCount -gt 0)
+                {
                     $TestFailed++
                 }
             }
-            else {
-                Write-Output -InputObject "  Warning : $($TestFile.BaseName) skipped for checking!" 
+            else
+            {
+                Write-Output -InputObject "  Warning : $($TestDirectory.FullName) skipped for checking!" 
             }
         }
 
         #Running trough all scripts and failed check in the end.
-        if ($TestFailed -gt 0) {
+        if ($TestFailed -gt 0)
+        {
             throw "One or more Pester tests have failed. Build cannot continue!"
         }
     }
-    else {
+    else
+    {
         Write-Output -InputObject "  No ARM files detected. Skipping check."
     }
 }
@@ -322,25 +373,30 @@ task TestARMAZSK {
 
     $TestFiles = Get-ChildItem @Params
 
-    if ($TestFiles) {
+    if ($TestFiles)
+    {
         Write-Output -InputObject "  ARM files detected. Start ARM check."
 
-        if (-not (Test-Path "$BuildRoot\Invoke-TestARMAZSK.ps1")) {
+        if (-not (Test-Path "$BuildRoot\Invoke-TestARMAZSK.ps1"))
+        {
             throw "File : Invoke-TestARMAZSK.ps1 cannot be found!"
         }
 
         Write-Output -InputObject "  Installing module AzSK."
         Install-Module -Name AzSK -Scope CurrentUser -Force -AllowClobber -ErrorAction Stop
 
-        foreach ($TestFile in $TestFiles) {
+        foreach ($TestFile in $TestFiles)
+        {
             #Check if files need to be skipped!
             $AzSSkipFiles = @()
-            if (Get-ChildItem -Path "$($TestFile.DirectoryName)\AzSSkipFiles.csv" -ErrorAction SilentlyContinue) {
+            if (Get-ChildItem -Path "$($TestFile.DirectoryName)\AzSSkipFiles.csv" -ErrorAction SilentlyContinue)
+            {
                 $AzSSkipFiles = Get-Content -Path "$($TestFile.DirectoryName)\AzSSkipFiles.csv"
                 Write-Output -InputObject "  AzSSkipFiles file found start excluding files."
                 Write-Output -InputObject "  AzSSkipFiles: $AzSSkipFiles"
             }
-            If (-not($AzSSkipFiles.Contains($TestFile.PSChildName))) {
+            If (-not($AzSSkipFiles.Contains($TestFile.PSChildName)))
+            {
                 Write-Output -InputObject "  Start file: $($TestFile.PSChildName) for ARM checking!"
 
                 $Parameters = @{
@@ -349,27 +405,32 @@ task TestARMAZSK {
 
                 #Check if there is a Severity file present and add it to the check.
                 $Severity = Get-Content -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).Severity.txt" -ErrorAction SilentlyContinue
-                If ($Severity) {
+                If ($Severity)
+                {
                     Write-Output -InputObject "  Severity found add value to parameter."
                     $Parameters.add("Severity", $Severity)
                 }
 
                 #AzSSkipControlsFromFile
-                if (Get-ChildItem -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).AzSSkipControlsFromFile.csv" -ErrorAction SilentlyContinue) {
+                if (Get-ChildItem -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).AzSSkipControlsFromFile.csv" -ErrorAction SilentlyContinue)
+                {
                     Write-Output -InputObject "  SkipControlsFromFile found add value to parameter."
                     $Parameters.add("SkipControlsFromFile", "$($TestFile.DirectoryName)\$($TestFile.BaseName).AzSSkipControlsFromFile.csv")
                 }
 
                 #Parameter File
-                if (Get-ChildItem -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).parameters.json" -ErrorAction SilentlyContinue) {
+                if (Get-ChildItem -Path "$($TestFile.DirectoryName)\$($TestFile.BaseName).parameters.json" -ErrorAction SilentlyContinue)
+                {
                     Write-Output -InputObject "  Parameter File found add value to parameter."
                     $Parameters.add("ParameterFilePath", "$($TestFile.DirectoryName)\$($TestFile.BaseName).parameters.json")
                 }
 
                 # Additional parameters on Azure Pipelines agents to generate test results
-                if ($env:TF_BUILD) {
+                if ($env:TF_BUILD)
+                {
                     Write-Output -InputObject "  Azure Pipelines agents detected, adding parameters."
-                    if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue)) {
+                    if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue))
+                    {
                         Write-Output -InputObject "  Creating path for testing report: $TestOutputDir"
                         New-Item -Path $TestOutputDir -ItemType Directory
                     }
@@ -382,11 +443,13 @@ task TestARMAZSK {
                         -OutputFile "$TestOutputDir\$TestResultFile" `
                         -PassThru
                     
-                    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue)) {
+                    if (-not(Test-Path -Path "$TestOutputDir\$TestResultFile" -ErrorAction SilentlyContinue))
+                    {
                         Write-Warning -Message "  Result file not found!"
                     }
                 }
-                else {
+                else
+                {
                     # Invoke all tests
                     $TestResults = Invoke-Pester -PassThru -Script @{ 
                         Path       = "$BuildRoot\Invoke-TestARMAZSK.ps1"; 
@@ -396,21 +459,25 @@ task TestARMAZSK {
                 }
 
                 #Setting counter to execute all tests and fail if one test failed
-                if ($TestResults.FailedCount -gt 0) {
+                if ($TestResults.FailedCount -gt 0)
+                {
                     $TestFailed++
                 }
             }
-            else {
+            else
+            {
                 Write-Output -InputObject "  Warning : $($TestFile.BaseName) skipped for checking!" 
             }
         }
         
         #Running trough all scripts and failed check in the end.
-        if ($TestFailed -gt 0) {
+        if ($TestFailed -gt 0)
+        {
             throw "One or more Pester tests have failed. Build cannot continue!"
         }
     }
-    else {
+    else
+    {
         Write-Output -InputObject "  No ARM files detected. Skipping check."
         
     }
@@ -431,8 +498,10 @@ task CodeCoverage {
     }
 
     # Additional parameters on Azure Pipelines agents to generate code coverage report
-    if ($env:TF_BUILD) {
-        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue)) {
+    if ($env:TF_BUILD)
+    {
+        if (-not (Test-Path -Path $TestOutputDir -ErrorAction SilentlyContinue))
+        {
             New-Item -Path $TestOutputDir -ItemType Directory
         }
         $Timestamp = Get-date -UFormat "%Y%m%d-%H%M%S"
@@ -445,22 +514,26 @@ task CodeCoverage {
 
     $result = Invoke-Pester @Params
 
-    If ( $result.CodeCoverage ) {
+    If ( $result.CodeCoverage )
+    {
         $codeCoverage = $result.CodeCoverage
         $commandsFound = $codeCoverage.NumberOfCommandsAnalyzed
 
         # To prevent any "Attempted to divide by zero" exceptions
-        If ( $commandsFound -ne 0 ) {
+        If ( $commandsFound -ne 0 )
+        {
             $commandsExercised = $codeCoverage.NumberOfCommandsExecuted
             [System.Double]$actualCodeCoveragePercent = [Math]::Round(($commandsExercised / $commandsFound) * 100, 2)
         }
-        Else {
+        Else
+        {
             [System.Double]$actualCodeCoveragePercent = 0
         }
     }
 
     # Fail the task if the code coverage results are not acceptable
-    if ($actualCodeCoveragePercent -lt $acceptableCodeCoveragePercent) {
+    if ($actualCodeCoveragePercent -lt $acceptableCodeCoveragePercent)
+    {
         throw "The overall code coverage by Pester tests is $actualCodeCoveragePercent% which is less than quality gate of $acceptableCodeCoveragePercent%. Pester ModuleVersion is: $((Get-Module -Name Pester -ListAvailable).Version)."
     }
 }
@@ -477,29 +550,34 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
     $credential = New-Object System.Management.Automation.PSCredential ($feedUsername, $password)
 
     # Register a target PSRepository
-    try {
+    try
+    {
         Write-Output -InputObject "  Register custom packages provider."
         Register-PackageSource -ProviderName 'PowerShellGet' -Name $repositoryName -Location $SourceLocation -Credential $Credential
 
     }
-    catch {
+    catch
+    {
         throw "Cannot register '$repositoryName' repository with source location '$SourceLocation'!"
     }
 
     # Define variable for existing package
     $existingPackage = $null
 
-    try {
+    try
+    {
         # Look for the module package in the repository
         $existingPackage = Find-Module -Name $ModuleName -Credential $credential
     }
     # In no existing module package was found, the base module version defined in the script will be used
-    catch {
+    catch
+    {
         Write-Warning "No existing package for '$ModuleName' module was found in '$repositoryName' repository!"
     }
 
     # If existing module package was found, try to install the module
-    if ($existingPackage) {
+    if ($existingPackage)
+    {
         Write-Output -InputObject "  Module [$ModuleName] detected."
         # Get the largest module version
         # $currentModuleVersion = (Get-Module -Name $ModuleName -ListAvailable | Measure-Object -Property 'Version' -Maximum).Maximum
@@ -511,12 +589,14 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
         [int]$Minor = $currentModuleVersion.Minor
         [int]$Build = $currentModuleVersion.Build
 
-        try {
+        try
+        {
             # Install the existing module from the repository
             Write-Output -InputObject "  Installing Module [$ModuleName]."
             Install-Module -Name $ModuleName -RequiredVersion $existingPackage.Version -Credential $credential -Force
         }
-        catch {
+        catch
+        {
             throw "Cannot import module '$ModuleName'!"
         }
 
@@ -532,29 +612,35 @@ task GenerateNewModuleVersion -If ($Configuration -eq 'Release') {
         Write-Output -InputObject " Different between is [$newFunctionsCount]."
 
         # Increase the minor number if any new public functions have been added
-        if ($newFunctionsCount -gt 0) {
+        if ($newFunctionsCount -gt 0)
+        {
             Write-Output -InputObject " Increase the minor number if any new public functions have been added."
             [int]$Minor = $Minor + 1
             [int]$Build = 0
         }
         # If not, just increase the build number
-        else {
+        else
+        {
             Write-Output -InputObject " Increase the build number."
             [int]$Build = $Build + 1
         }
 
         # If Major release number is specified then it will be used.
-        if ($MajorVersionNumber) {
+        if ($MajorVersionNumber)
+        {
             Write-Output -InputObject " Major versioning number has been specified [$MajorVersionNumber]."
-            If ($MajorVersionNumber -ge [int]$Major) {
-                If ($MajorVersionNumber -gt [int]$Major) {
+            If ($MajorVersionNumber -ge [int]$Major)
+            {
+                If ($MajorVersionNumber -gt [int]$Major)
+                {
                     Write-Output -InputObject " Major versioning number is higher [$MajorVersionNumber] than current number [$Major]. Updating version and setting Minor and Build number to 0"
                     [int]$Major = $MajorVersionNumber
                     [int]$Minor = 0
                     [int]$Build = 0
                 }
             }
-            else {
+            else
+            {
                 Throw "Version number specified [$MajorVersionNumber] is smaller then version released [$Major]."
             } 
         }
@@ -615,13 +701,15 @@ task UpdatePackageSpecification GenerateNewModuleVersion, {
 # Synopsis: Build the project
 task Build UpdateModuleManifest, UpdatePackageSpecification, {
     # Warning on local builds
-    if ($Configuration -eq 'Debug') {
+    if ($Configuration -eq 'Debug')
+    {
         Write-Warning "Creating a debug build. Use it for test purpose only!"
     }
 
     # Create versioned output folder
     $moduleOutputPath = Join-Path -Path $buildOutputPath -ChildPath $ModuleName -AdditionalChildPath $newModuleVersion
-    if (-not (Test-Path $moduleOutputPath)) {
+    if (-not (Test-Path $moduleOutputPath))
+    {
         New-Item -Path $moduleOutputPath -ItemType Directory
     }
 
@@ -639,11 +727,14 @@ task Build UpdateModuleManifest, UpdatePackageSpecification, {
 
     #Populating the PSM1 file
     [System.Text.StringBuilder]$stringbuilder = [System.Text.StringBuilder]::new()    
-    foreach ($folder in $imports ) {
+    foreach ($folder in $imports )
+    {
         [void]$stringbuilder.AppendLine( "Write-Verbose 'Importing from [$moduleSourcePath\$folder]'" )
-        if (Test-Path "$moduleSourcePath\$folder") {
+        if (Test-Path "$moduleSourcePath\$folder")
+        {
             $fileList = Get-ChildItem "$moduleSourcePath\$folder\*.ps1" | Where-Object Name -NotLike '*.Tests.ps1'
-            foreach ($file in $fileList) {
+            foreach ($file in $fileList)
+            {
                 $shortName = $file.fullname.replace($PSScriptRoot, '')
                 Write-Output -InputObject "  Importing [.$shortName]"
                 [void]$stringbuilder.AppendLine( "# .$shortName" ) 
@@ -656,8 +747,10 @@ task Build UpdateModuleManifest, UpdatePackageSpecification, {
     Set-Content -Path  $ModulePath -Value $stringbuilder.ToString()
 
     #Cleaning up output folders
-    foreach ($folder in $imports ) {
-        if (Test-Path "$moduleOutputPath\$folder") {
+    foreach ($folder in $imports )
+    {
+        if (Test-Path "$moduleOutputPath\$folder")
+        {
             Write-Output -InputObject "  Removing [$moduleOutputPath\$folder]"
             Remove-Item –Path "$moduleOutputPath\$folder" –Recurse
         }
@@ -673,7 +766,8 @@ task BuildingHelpFiles {
 
     Write-Output -InputObject "Modules: $Modules"
 
-    foreach ($Module in $Modules) {
+    foreach ($Module in $Modules)
+    {
 
         #Remove the module from OS
         Write-Output -InputObject "Start processing the following module : $($Module.Name)"
@@ -688,22 +782,26 @@ task BuildingHelpFiles {
 
         #Construction file paths
 
-        if (-not (Test-Path -Path $buildOutputPath -ErrorAction SilentlyContinue)) {
+        if (-not (Test-Path -Path $buildOutputPath -ErrorAction SilentlyContinue))
+        {
             New-Item -Path $buildOutputPath -ItemType Directory
         }
 
         $RootPath = "$buildOutputPath\Help"
-        If (!(test-path $RootPath)) {
+        If (!(test-path $RootPath))
+        {
             New-Item -ItemType Directory -Force -Path $RootPath
         }
 
         $RootModulePath = "$RootPath\$($Module.BaseName)"
-        If (!(test-path $RootModulePath)) {
+        If (!(test-path $RootModulePath))
+        {
             New-Item -ItemType Directory -Force -Path $RootModulePath
         }
 
         $Modulepath = "$RootModulePath\$($moduleversion.Version.ToString())"
-        If (test-path $Modulepath) {
+        If (test-path $Modulepath)
+        {
             Remove-Item –path $Modulepath –recurse
         }
         New-Item -ItemType Directory -Force -Path $Modulepath
@@ -750,7 +848,8 @@ task BuildingHelpFiles {
         "|---------|---------|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
         
         $Functions = $ModuleInfo.ExportedFunctions
-        Foreach ($Function in $Functions.Keys) {
+        Foreach ($Function in $Functions.Keys)
+        {
             $FunctionsHelp = Get-Help -Name $Function -Full
             "|$($FunctionsHelp.Name)|$($FunctionsHelp.Synopsis)|" |  Out-File -FilePath "$Modulepath\index.md" -Append -Force
         }
@@ -760,17 +859,20 @@ task BuildingHelpFiles {
         $Counter = 1
 
         Write-Output -InputObject "Start processing the MD files to include header."
-        Foreach ($File in $Files) {
+        Foreach ($File in $Files)
+        {
             [System.Collections.ArrayList]$files = Get-Content -Path $File.FullName
 
             ($files | Select-String -Pattern '----')
             $index = ($files.IndexOf('----') + 2)
 
             # Checking correct name, index is not correct
-            if ($($File.BaseName) -eq "index") {
+            if ($($File.BaseName) -eq "index")
+            {
                 $line1 = "Name : $($Module.Name)"
             }
-            else {
+            else
+            {
                 $line1 = "Name : $($File.BaseName)"
             }
 
@@ -790,7 +892,8 @@ task BuildingHelpFiles {
 
 # Synopsis: Clean up the target build directory
 task Clean {
-    if (Test-Path $buildOutputPath) {
+    if (Test-Path $buildOutputPath)
+    {
         Remove-Item –Path $buildOutputPath –Recurse
     }
 }
