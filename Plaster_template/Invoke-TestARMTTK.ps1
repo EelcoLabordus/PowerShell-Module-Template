@@ -39,8 +39,13 @@
 param (
   [Parameter(
     Mandatory = $true,
-    HelpMessage = "Please specified the required location to the arm file?")]
+    HelpMessage = "Please specified the required location to the arm folder?")]
   [String]$TemplatePath,
+
+  [Parameter(
+    Mandatory = $False,
+    HelpMessage = "List of checks that needs to be exclude?")]
+  $SkipByFilePath,
 
   [Parameter(      
     Mandatory = $false,
@@ -57,6 +62,13 @@ BEGIN {
   $Parameters = @{
     TemplatePath = $TemplatePath
     Pester       = $true
+  }
+  #AzSSkipControlsFromFile
+  if ($SkipByFilePath) {
+    $content = ( Get-Content $SkipByFilePath | Out-String )
+    $SkipByFile = ( Invoke-Expression $content )
+    $Parameters.add("SkipByFile", $SkipByFile)
+    
   }
 
   if ($SkipControls) {
@@ -75,6 +87,7 @@ BEGIN {
 
 PROCESS {
   #region -----------------------[ Pipeline Execution ]-----------------------
+
   Test-AzTemplate @Parameters
   #endregion --------------------[ Pipeline Execution ]-----------------------
 }
@@ -82,6 +95,5 @@ PROCESS {
 END {
   #region ---------------------[ Post Pipeline Execution ]--------------------
 
-  Write-Verbose "Exit function $($MyInvocation.MyCommand.Name)"
   #endregion ------------------[ Post Pipeline Execution ]--------------------
 }
